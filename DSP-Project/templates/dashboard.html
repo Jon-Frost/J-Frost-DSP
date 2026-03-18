@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}DataForge — Dashboard{% endblock %}
+
+{% block content %}
+<div class="main-content">
+    <!-- Hero -->
+    <div class="hero-section">
+        <h2>Welcome back, {{ session.get('username', 'User') }}</h2>
+        <p>Upload datasets, build interactive dashboards, and chat with AI about your data.</p>
+        <div class="hero-actions">
+            <button class="btn btn-primary js-open-upload-modal" type="button">
+                <i class="fas fa-cloud-upload-alt"></i> Upload Dataset
+            </button>
+            <a href="/builder" class="btn btn-secondary">
+                <i class="fas fa-plus"></i> New Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Datasets -->
+    <div class="section-header">
+        <div>
+            <h3>Datasets</h3>
+        </div>
+        <span class="count">{{ datasets|length }} file{{ 's' if datasets|length != 1 }}</span>
+    </div>
+
+    {% if datasets %}
+    <div class="grid-4 mb-3">
+        {% for ds in datasets %}
+        <div class="dataset-card">
+            <div class="ds-header">
+                <div class="flex items-center gap-1">
+                    <div class="ds-icon {{ ds.file_type }}">
+                        <i class="fas fa-{% if ds.file_type == 'csv' %}file-csv{% elif ds.file_type in ('xlsx','xls') %}file-excel{% elif ds.file_type == 'json' %}file-code{% else %}file-alt{% endif %}"></i>
+                    </div>
+                    <div>
+                        <div class="ds-name" title="{{ ds.original_name }}">{{ ds.original_name }}</div>
+                        <div class="ds-meta">{{ ds.row_count }} rows · {{ ds.col_count }} cols</div>
+                    </div>
+                </div>
+            </div>
+            <div class="ds-actions">
+                <a href="/builder?dataset_id={{ ds.id }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-chart-bar"></i> Build
+                </a>
+                <button class="btn btn-danger btn-sm js-delete-dataset" type="button" data-dataset-id="{{ ds.id }}" data-dataset-name="{{ ds.original_name|e }}">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state mb-3">
+        <i class="fas fa-database"></i>
+        <h3>No datasets yet</h3>
+        <p>Upload a CSV, Excel, JSON or TSV file to get started.</p>
+        <button class="btn btn-primary js-open-upload-modal" type="button">
+            <i class="fas fa-cloud-upload-alt"></i> Upload File
+        </button>
+    </div>
+    {% endif %}
+
+    <!-- Saved Dashboards -->
+    <div class="section-header mt-3">
+        <h3>Saved Dashboards</h3>
+        <span class="count">{{ dashboards|length }} dashboard{{ 's' if dashboards|length != 1 }}</span>
+    </div>
+
+    {% if dashboards %}
+    <div class="grid-3">
+        {% for d in dashboards %}
+        <div class="dash-card js-open-dashboard" data-href="/builder?dashboard_id={{ d.id }}&dataset_id={{ d.dataset_id }}">
+            <h4>{{ d.name }}</h4>
+            <div class="dash-meta">
+                <span><i class="fas fa-table"></i> {{ d.dataset_name }}</span>
+                <span><i class="fas fa-clock"></i> {{ d.updated_at[:10] }}</span>
+            </div>
+            <div class="ds-actions ds-actions-top">
+                <button class="btn btn-danger btn-sm js-delete-dashboard" type="button" data-dashboard-id="{{ d.id }}" data-dashboard-name="{{ d.name|e }}">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-chart-line"></i>
+        <h3>No dashboards yet</h3>
+        <p>Select a dataset and build your first dashboard.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Upload Modal -->
+<div class="modal-overlay" id="uploadModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-cloud-upload-alt text-accent"></i> Upload Dataset</h3>
+            <button class="btn btn-ghost btn-icon js-close-upload-modal" type="button">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="upload-zone" id="uploadZone">
+                <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.json,.tsv">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <h4>Drop your file here or click to browse</h4>
+                <p>CSV, Excel, JSON, TSV — up to 50MB</p>
+            </div>
+            <div class="upload-progress" id="uploadProgress">
+                <div class="upload-progress-header">
+                    <span class="text-secondary text-xs" id="uploadStatus">Uploading...</span>
+                    <span class="mono text-muted text-xs" id="uploadPercent">0%</span>
+                </div>
+                <div class="bar-track"><div class="bar-fill" id="uploadBar"></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}DataForge — Settings{% endblock %}
+
+{% block content %}
+<div class="main-content">
+    <div class="settings-container">
+        <div class="page-header">
+            <div>
+                <h1>Settings</h1>
+                <p>Configure your DataForge experience</p>
+            </div>
+        </div>
+
+        <!-- Gemini API Key -->
+        <div class="settings-card">
+            <div class="settings-card-header">
+                <h3><i class="fas fa-key text-accent"></i> Gemini API Key</h3>
+                <p>The AI assistant now uses the server key from your .env file</p>
+            </div>
+            <div class="settings-card-body">
+                <div class="key-status" id="keyStatus">
+                    <span class="key-dot {{ 'active' if gemini_configured else 'inactive' }}"></span>
+                    <span class="{{ 'status-success-text' if gemini_configured else '' }}">
+                        {{ 'Gemini API key loaded from .env' if gemini_configured else 'Gemini API key not found in .env' }}
+                    </span>
+                </div>
+
+                <div class="info-box">
+                    Add your key to the project's <strong>.env</strong> file as <strong>GEMINI_API_KEY=...</strong>.
+                    The browser no longer stores or sends user-provided Gemini keys.
+                </div>
+            </div>
+        </div>
+
+        <!-- Account -->
+        <div class="settings-card">
+            <div class="settings-card-header">
+                <h3><i class="fas fa-user text-accent"></i> Account</h3>
+            </div>
+            <div class="settings-card-body">
+                <div class="account-row">
+                    <div class="account-avatar">
+                        {{ session.get('username', 'U')[0]|upper }}
+                    </div>
+                    <div>
+                        <div class="account-name">{{ session.get('username', '') }}</div>
+                        <div class="account-status">Logged in</div>
+                    </div>
+                </div>
+                <a href="/logout" class="btn btn-danger btn-sm">
+                    <i class="fas fa-sign-out-alt"></i> Log Out
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

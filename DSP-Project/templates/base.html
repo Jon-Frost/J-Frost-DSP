@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Data Assistant{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+    {% if session.get('user_id') %}
+    <nav class="navbar">
+        <a href="/dashboard" class="navbar-brand">
+            <span class="brand-icon"><i class="fas fa-cube"></i></span>
+            Data Assistant
+        </a>
+        <div class="navbar-links">
+            <a href="/dashboard" class="{{ 'active' if request.endpoint == 'dashboard' }}">
+                <i class="fas fa-th-large"></i> Home
+            </a>
+            <a href="/builder" class="{{ 'active' if request.endpoint == 'builder' }}">
+                <i class="fas fa-chart-bar"></i> Builder
+            </a>
+            <a href="/settings" class="{{ 'active' if request.endpoint == 'settings' }}">
+                <i class="fas fa-cog"></i> Settings
+            </a>
+        </div>
+        <div class="navbar-user">
+            <span>{{ session.get('username', '') }}</span>
+            <div class="avatar">{{ session.get('username', 'U')[0]|upper }}</div>
+            <a href="/logout" class="btn btn-ghost btn-sm"><i class="fas fa-sign-out-alt"></i></a>
+        </div>
+    </nav>
+    {% endif %}
+
+    <div class="flash-container" id="flashContainer">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endwith %}
+    </div>
+
+    {% block content %}{% endblock %}
+
+    <script src="{{ url_for('static', filename='js/base.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

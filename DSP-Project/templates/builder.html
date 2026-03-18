@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}DataForge — Builder{% endblock %}
+
+{% block content %}
+<div class="builder-layout" id="builderLayout" data-selected-dashboard-id="{{ selected_dashboard_id|default('', true) }}">
+    <!-- LEFT SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+        <!-- Dataset selector -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Dataset</div>
+            <select class="form-select" id="datasetSelect">
+                <option value="">Select a dataset…</option>
+                {% for ds in datasets %}
+                <option value="{{ ds.id }}" {% if selected_dataset_id and ds.id|string == selected_dataset_id|string %}selected{% endif %}>
+                    {{ ds.original_name }} ({{ ds.row_count }} rows)
+                </option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-secondary btn-sm w-100 mt-1" id="cleanDataBtn" type="button">
+                Clean My Data
+            </button>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Key Highlights</div>
+            <div class="highlights-box" id="keyHighlightsContainer">
+                <div class="empty-state highlights-empty-state">
+                    <p class="text-muted text-xs">Select a dataset to see instant key highlights</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs: Chart Config / Data Preview -->
+        <div class="tab-bar">
+            <button class="tab-btn active" type="button" data-tab="config">Chart</button>
+            <button class="tab-btn" type="button" data-tab="preview">Data</button>
+            <button class="tab-btn" type="button" data-tab="stats">Stats</button>
+        </div>
+
+        <!-- Chart Config Tab -->
+        <div class="tab-content active" id="tab-config">
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Chart Type</div>
+                <div class="chart-type-grid">
+                    <div class="chart-type-btn active" data-type="bar">
+                        <i class="fas fa-chart-bar"></i>Bar
+                    </div>
+                    <div class="chart-type-btn" data-type="line">
+                        <i class="fas fa-chart-line"></i>Line
+                    </div>
+                    <div class="chart-type-btn" data-type="scatter">
+                        <i class="fas fa-braille"></i>Scatter
+                    </div>
+                    <div class="chart-type-btn" data-type="pie">
+                        <i class="fas fa-chart-pie"></i>Pie
+                    </div>
+                    <div class="chart-type-btn" data-type="histogram">
+                        <i class="fas fa-signal"></i>Hist
+                    </div>
+                    <div class="chart-type-btn" data-type="box">
+                        <i class="fas fa-square"></i>Box
+                    </div>
+                    <div class="chart-type-btn" data-type="area">
+                        <i class="fas fa-mountain"></i>Area
+                    </div>
+                    <div class="chart-type-btn" data-type="heatmap">
+                        <i class="fas fa-th"></i>Heat
+                    </div>
+                    <div class="chart-type-btn" data-type="violin">
+                        <i class="fas fa-guitar"></i>Violin
+                    </div>
+                    <div class="chart-type-btn" data-type="sunburst">
+                        <i class="fas fa-sun"></i>Sunburst
+                    </div>
+                    <div class="chart-type-btn" data-type="treemap">
+                        <i class="fas fa-border-all"></i>Tree
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Axes & Fields</div>
+                <div class="form-group">
+                    <label class="form-label">X-Axis / Category</label>
+                    <select class="form-select" id="xColumn"></select>
+                </div>
+                <div class="form-group" id="yColGroup">
+                    <label class="form-label">Y-Axis / Value</label>
+                    <select class="form-select" id="yColumn"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Color / Group (optional)</label>
+                    <select class="form-select" id="colorColumn">
+                        <option value="">None</option>
+                    </select>
+                </div>
+                <div class="form-group" id="aggGroup">
+                    <label class="form-label">Aggregation</label>
+                    <select class="form-select" id="aggregation">
+                        <option value="sum">Sum</option>
+                        <option value="mean">Mean</option>
+                        <option value="count">Count</option>
+                        <option value="min">Min</option>
+                        <option value="max">Max</option>
+                        <option value="median">Median</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Chart Title</div>
+                <input type="text" class="form-input" id="chartTitle" placeholder="Auto-generated if blank">
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Size</div>
+                <div class="flex gap-1">
+                    <label class="checkbox-inline-label">
+                        <input type="checkbox" id="fullWidthCheck"> Full width
+                    </label>
+                </div>
+            </div>
+
+            <button class="btn btn-primary w-100" id="addChartBtn" type="button">
+                <i class="fas fa-plus"></i> Add Chart
+            </button>
+        </div>
+
+        <!-- Data Preview Tab -->
+        <div class="tab-content" id="tab-preview">
+            <div id="dataPreviewContainer" class="data-preview-container">
+                <div class="empty-state">
+                    <p class="text-muted text-xs">Select a dataset to preview data</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Tab -->
+        <div class="tab-content" id="tab-stats">
+            <div id="dataStatsContainer">
+                <div class="empty-state">
+                    <p class="text-muted text-xs">Select a dataset to view statistics</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CENTER CANVAS -->
+    <div class="canvas">
+        <div class="canvas-toolbar">
+            <div class="flex items-center gap-2">
+                <input type="text" class="dash-name" id="dashboardName" placeholder="Untitled Dashboard" value="">
+                <div class="flex gap-1">
+                    <button class="btn btn-ghost btn-sm js-grid-btn" type="button" data-grid-cols="1" title="1 column"><i class="fas fa-square"></i></button>
+                    <button class="btn btn-ghost btn-sm active js-grid-btn" type="button" data-grid-cols="2" title="2 columns"><i class="fas fa-th-large"></i></button>
+                    <button class="btn btn-ghost btn-sm js-grid-btn" type="button" data-grid-cols="3" title="3 columns"><i class="fas fa-th"></i></button>
+                </div>
+            </div>
+            <div class="flex gap-1">
+                <button class="btn btn-secondary btn-sm" id="saveDashboardBtn" type="button">
+                    <i class="fas fa-save"></i> Save
+                </button>
+                <button class="btn btn-secondary btn-sm" id="exportDashboardBtn" type="button">
+                    <i class="fas fa-download"></i> Export
+                </button>
+            </div>
+        </div>
+
+        <div class="chart-grid" id="chartGrid">
+            <div class="empty-state full-span" id="emptyCanvas">
+                <i class="fas fa-chart-area"></i>
+                <h3>Your canvas is empty</h3>
+                <p>Configure a chart on the left and click "Add Chart"</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT CHAT PANEL -->
+    <div class="chat-panel" id="chatPanel">
+        <div class="chat-header">
+            <h3>
+                AI Assistant
+                <span class="gemini-badge">Gemini</span>
+            </h3>
+            <button class="btn btn-ghost btn-sm" id="clearChatBtn" type="button" title="Clear chat">
+                <i class="fas fa-eraser"></i>
+            </button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-msg assistant">
+                Hi! I'm your AI data assistant powered by Gemini. Select a dataset and ask me anything about your data — trends, patterns, chart suggestions, or insights.
+                <br><br>
+                <span class="gemini-note">The Gemini key is configured on the server.</span>
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <div class="chat-input-wrap">
+                <input type="text" id="chatInput" placeholder="Ask about your data…">
+                <button class="btn btn-primary btn-icon" id="sendChatBtn" type="button">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Mobile toggles -->
+<div class="panel-toggle toggle-sidebar" id="toggleSidebarBtn">
+    <i class="fas fa-sliders-h"></i>
+</div>
+<div class="panel-toggle toggle-chat" id="toggleChatBtn">
+    <i class="fas fa-robot"></i>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/builder.js') }}"></script>
+{% endblock %}
