@@ -110,7 +110,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def infer_columns_info(df):
-    """Infer dataset column metadata used throughout the app."""
+    # Record column info for quick processing
     columns_info = []
     for col in df.columns:
         dtype = str(df[col].dtype)
@@ -124,7 +124,7 @@ def infer_columns_info(df):
     return columns_info
 
 def build_dataset_highlights(df, columns):
-    """Generate concise, user-facing highlight bullets for a dataset."""
+    # Generate highlight bullets for a dataset.
     highlights = []
     row_count = len(df)
     col_count = len(df.columns)
