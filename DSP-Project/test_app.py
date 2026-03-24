@@ -94,7 +94,9 @@ class DataForgeAppTests(unittest.TestCase):
         return dataset_id
 
     def test_helpers_basic_behavior(self):
-        self.assertEqual(len(app_module.hash_password("abc123")), 64)
+        password_hash = app_module.hash_password("abc123")
+        self.assertTrue(app_module.check_password("abc123", password_hash))
+        self.assertFalse(app_module.check_password("wrong-password", password_hash))
         self.assertTrue(app_module.allowed_file("data.csv"))
         self.assertFalse(app_module.allowed_file("data.exe"))
 

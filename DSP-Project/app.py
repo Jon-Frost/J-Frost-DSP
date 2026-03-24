@@ -12,6 +12,7 @@ from flask import (
     session, flash, jsonify, send_file, g
 )
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 import io
 import base64
 import numpy as np
@@ -93,7 +94,10 @@ def init_db():
 init_db()
 
 def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
+    return generate_password_hash(password)
+
+def check_password(password, password_hash):
+    return check_password_hash(password_hash, password)
 
 # ─── Auth decorator ─────────────────────────────────────────────────────────
 
@@ -212,7 +216,7 @@ def login():
         password = request.form.get('password', '')
         db = get_db()
         user = db.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
-        if user and user['password_hash'] == hash_password(password):
+        if user and check_password(password, user['password_hash']):
             session['user_id'] = user['id']
             session['username'] = user['username']
             return redirect(url_for('dashboard'))
