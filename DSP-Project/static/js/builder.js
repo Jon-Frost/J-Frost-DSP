@@ -1,3 +1,7 @@
+// ══════════════════════════════════════════════════════════════════════════════
+// STATE VARIABLES — TRACK THE ACTIVE DATASET, DASHBOARD, CHART CONFIG, AND GRID
+// ══════════════════════════════════════════════════════════════════════════════
+
 let currentDatasetId = null;
 let currentDashboardId = null;
 let chartType = 'bar';
@@ -5,6 +9,10 @@ let columns = [];
 let charts = [];
 let gridCols = 2;
 const chartResizeObservers = new Map();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DATASET SELECTION — READ AND VALIDATE THE CHOSEN DATASET FROM THE DROPDOWN
+// ══════════════════════════════════════════════════════════════════════════════
 
 function getSelectedDatasetId() {
     const dsSelect = document.getElementById('datasetSelect');
@@ -19,6 +27,10 @@ function ensureDatasetSelected() {
     return currentDatasetId;
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// TAB SWITCHING — TOGGLE VISIBILITY OF SIDEBAR CONTENT PANELS
+// ══════════════════════════════════════════════════════════════════════════════
+
 function switchTab(tab, button) {
     document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach((c) => c.classList.remove('active'));
@@ -28,7 +40,12 @@ function switchTab(tab, button) {
     if (target) target.classList.add('active');
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// CHART TYPE SELECTION — UPDATE ACTIVE CHART TYPE AND TOGGLE Y/AGG VISIBILITY
+// ══════════════════════════════════════════════════════════════════════════════
+
 function selectChartType(type) {
+    // SET THE ACTIVE CHART TYPE AND HIDE IRRELEVANT CONTROLS FOR CERTAIN TYPES
     chartType = type;
     document.querySelectorAll('.chart-type-btn').forEach((b) => b.classList.remove('active'));
     const activeBtn = document.querySelector(`.chart-type-btn[data-type="${type}"]`);
@@ -45,7 +62,13 @@ function selectChartType(type) {
         yGroup.style.display = 'block';
         aggGroup.style.display = 'block';
     }
+
+    updateForecastVisibility();
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GRID LAYOUT — SET THE NUMBER OF COLUMNS IN THE CHART CANVAS GRID
+// ══════════════════════════════════════════════════════════════════════════════
 
 function setGridCols(n) {
     gridCols = n;
@@ -61,7 +84,12 @@ function setGridCols(n) {
     });
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// DATASET LOADING — FETCH PREVIEW, COLUMNS, STATS, AND HIGHLIGHTS FROM SERVER
+// ══════════════════════════════════════════════════════════════════════════════
+
 function loadDataset() {
+    // READ THE SELECTED DATASET ID AND FETCH ITS PREVIEW DATA
     const dsSelect = document.getElementById('datasetSelect');
     if (!dsSelect) return;
 
@@ -88,7 +116,12 @@ function loadDataset() {
         });
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// DATA CLEANING — TRIGGER SERVER-SIDE MISSING VALUE IMPUTATION
+// ══════════════════════════════════════════════════════════════════════════════
+
 function cleanSelectedDataset() {
+    // POST TO THE CLEAN ENDPOINT AND REDIRECT TO THE NEWLY CLEANED DATASET
     const datasetId = ensureDatasetSelected();
     if (!datasetId) {
         showToast('Select a dataset first', 'warning');
@@ -119,7 +152,12 @@ function cleanSelectedDataset() {
         });
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// RENDERING — HIGHLIGHTS, DATA PREVIEW TABLE, AND COLUMN STATS CARDS
+// ══════════════════════════════════════════════════════════════════════════════
+
 function renderHighlights(highlights) {
+    // DISPLAY KEY DATASET HIGHLIGHTS AS A BULLETED LIST
     const container = document.getElementById('keyHighlightsContainer');
     if (!container) return;
 
@@ -136,6 +174,7 @@ function renderHighlights(highlights) {
 }
 
 function populateSelectors(cols) {
+    // FILL THE X, Y, AND COLOUR DROPDOWN MENUS WITH COLUMN OPTIONS
     const xSel = document.getElementById('xColumn');
     const ySel = document.getElementById('yColumn');
     const cSel = document.getElementById('colorColumn');
@@ -145,9 +184,40 @@ function populateSelectors(cols) {
     ySel.innerHTML = cols.filter((c) => c.type === 'numeric').map((c) => `<option value="${c.name}">${c.name}</option>`).join('');
     cSel.innerHTML = '<option value="">None</option>' +
         cols.filter((c) => c.type === 'categorical').map((c) => `<option value="${c.name}">${c.name}</option>`).join('');
+
+    updateForecastVisibility();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FORECAST VISIBILITY — SHOW/HIDE FORECAST TOGGLE BASED ON CHART TYPE AND X COLUMN
+// ══════════════════════════════════════════════════════════════════════════════
+
+function updateForecastVisibility() {
+    // ONLY DISPLAY THE FORECAST SECTION FOR LINE/AREA CHARTS WITH A DATETIME X-AXIS
+    const section = document.getElementById('forecastSection');
+    if (!section) return;
+
+    const isTimeSeries = (chartType === 'line' || chartType === 'area');
+    const xSel = document.getElementById('xColumn');
+    let xIsDatetime = false;
+    if (xSel && columns.length) {
+        const selected = columns.find((c) => c.name === xSel.value);
+        if (selected && selected.type === 'datetime') xIsDatetime = true;
+    }
+
+    if (isTimeSeries && xIsDatetime) {
+        section.style.display = '';
+    } else {
+        section.style.display = 'none';
+        const toggle = document.getElementById('forecastToggle');
+        if (toggle) toggle.checked = false;
+        const periodGroup = document.getElementById('forecastPeriodGroup');
+        if (periodGroup) periodGroup.style.display = 'none';
+    }
 }
 
 function renderPreview(rows, cols) {
+    // BUILD AN HTML TABLE OF THE FIRST 30 ROWS FOR THE DATA PREVIEW TAB
     if (!rows || !rows.length) return;
     const colNames = cols.map((c) => c.name);
     let html = '<div class="data-preview-table"><table>';
@@ -163,6 +233,7 @@ function renderPreview(rows, cols) {
 }
 
 function renderStats(stats, cols) {
+    // RENDER PER-COLUMN STATISTICS CARDS (MIN/MAX/MEAN FOR NUMERIC, UNIQUE/TOP FOR CATEGORICAL)
     let html = '';
     cols.forEach((col) => {
         const s = stats[col.name];
@@ -192,6 +263,10 @@ function renderStats(stats, cols) {
     }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// CHART RESIZE OBSERVERS — AUTO-RESIZE PLOTLY CHARTS WHEN CELLS CHANGE SIZE
+// ══════════════════════════════════════════════════════════════════════════════
+
 function attachChartResizeObserver(chartId) {
     const cell = document.getElementById(chartId);
     const plotDiv = document.getElementById(chartId + '_plot');
@@ -213,7 +288,12 @@ function detachChartResizeObserver(chartId) {
     chartResizeObservers.delete(chartId);
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// CHART MANAGEMENT — ADD, REMOVE, AND TOGGLE FULL-WIDTH ON CHART CELLS
+// ══════════════════════════════════════════════════════════════════════════════
+
 function addChart(config = null) {
+    // BUILD A CHART CONFIG FROM THE UI INPUTS (OR USE A PROVIDED CONFIG), POST TO /API/CHART
     if (!ensureDatasetSelected()) {
         showToast('Select a dataset first', 'warning');
         return;
@@ -227,6 +307,8 @@ function addChart(config = null) {
         aggregation: document.getElementById('aggregation')?.value,
         title: document.getElementById('chartTitle')?.value,
         full_width: !!document.getElementById('fullWidthCheck')?.checked,
+        forecast: !!document.getElementById('forecastToggle')?.checked,
+        forecast_periods: parseInt(document.getElementById('forecastPeriods')?.value || '30', 10),
     };
 
     const chartId = 'chart_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -279,6 +361,15 @@ function addChart(config = null) {
                 autosize: true,
             }, { responsive: true, displayModeBar: true, displaylogo: false });
             attachChartResizeObserver(chartId);
+
+            // SHOW FORECAST STATUS TOAST (SUCCESS OR WARNING)
+            if (data.forecast) {
+                if (data.forecast.error) {
+                    showToast(data.forecast.error, 'warning');
+                } else if (data.forecast.message) {
+                    showToast(data.forecast.message, 'success');
+                }
+            }
         })
         .catch((err) => {
             const plotTarget = document.getElementById(chartId + '_plot');
@@ -289,6 +380,7 @@ function addChart(config = null) {
 }
 
 function removeChart(chartId) {
+    // REMOVE A CHART CELL FROM THE DOM AND CLEAN UP ITS RESIZE OBSERVER
     const el = document.getElementById(chartId);
     if (el) el.remove();
     detachChartResizeObserver(chartId);
@@ -301,6 +393,7 @@ function removeChart(chartId) {
 }
 
 function toggleFullWidth(chartId) {
+    // TOGGLE THE FULL-WIDTH CSS CLASS ON A CHART CELL AND FORCE A PLOTLY RESIZE
     const cell = document.getElementById(chartId);
     if (!cell) return;
 
@@ -314,7 +407,12 @@ function toggleFullWidth(chartId) {
     }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// DASHBOARD PERSISTENCE — SAVE, LOAD, AND EXPORT DASHBOARD CONFIGURATIONS
+// ══════════════════════════════════════════════════════════════════════════════
+
 function saveDashboard() {
+    // POST ALL CURRENT CHART CONFIGS AND GRID LAYOUT TO THE SAVE ENDPOINT
     if (!ensureDatasetSelected()) {
         showToast('No dataset selected', 'warning');
         return;
@@ -350,6 +448,7 @@ function saveDashboard() {
 }
 
 function loadDashboard(id) {
+    // FETCH A SAVED DASHBOARD AND RECREATE ALL ITS CHARTS ON THE CANVAS
     fetch(`/api/dashboard/${id}`)
         .then((r) => r.json())
         .then((data) => {
@@ -374,6 +473,7 @@ function loadDashboard(id) {
 }
 
 function exportDashboard() {
+    // AUTO-SAVE IF NEEDED, THEN OPEN THE EXPORT HTML IN A NEW TAB
     if (!currentDashboardId) {
         saveDashboard();
         setTimeout(() => {
@@ -387,7 +487,12 @@ function exportDashboard() {
     window.open(`/api/dashboard/${currentDashboardId}/export`, '_blank');
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// CHAT PANEL — SEND MESSAGES, DISPLAY AI RESPONSES, AND MANAGE HISTORY
+// ══════════════════════════════════════════════════════════════════════════════
+
 function appendMessage(role, html, id) {
+    // APPEND A SINGLE CHAT BUBBLE (USER OR ASSISTANT) TO THE MESSAGES CONTAINER
     const container = document.getElementById('chatMessages');
     if (!container) return;
 
@@ -400,6 +505,7 @@ function appendMessage(role, html, id) {
 }
 
 function formatMarkdown(text) {
+    // BASIC MARKDOWN-TO-HTML CONVERSION FOR CODE BLOCKS, BOLD, ITALIC, AND NEWLINES
     let output = text;
     output = output.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
     output = output.replace(/`([^`]+)`/g, '<code class="chat-inline-code">$1</code>');
@@ -410,6 +516,7 @@ function formatMarkdown(text) {
 }
 
 function addChartFromSuggestion(cs) {
+    // CREATE A CHART USING THE AI-SUGGESTED CONFIGURATION
     addChart({
         chart_type: cs.chart_type || 'bar',
         x: cs.x,
@@ -422,6 +529,7 @@ function addChartFromSuggestion(cs) {
 }
 
 function sendChat() {
+    // SEND THE USER'S MESSAGE TO THE AI ENDPOINT AND RENDER THE RESPONSE
     const input = document.getElementById('chatInput');
     if (!input) return;
 
@@ -472,6 +580,7 @@ function sendChat() {
 }
 
 function loadChatHistory() {
+    // FETCH AND DISPLAY ALL PREVIOUS MESSAGES FOR THE CURRENT DATASET
     if (!ensureDatasetSelected()) return;
 
     fetch(`/api/chat/history/${currentDatasetId}`)
@@ -491,6 +600,7 @@ function loadChatHistory() {
 }
 
 function clearChat() {
+    // DELETE ALL CHAT HISTORY FOR THE CURRENT DATASET AND RESET THE UI
     if (!ensureDatasetSelected()) return;
 
     fetch(`/api/chat/clear/${currentDatasetId}`, { method: 'POST' })
@@ -505,23 +615,31 @@ function clearChat() {
         });
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// INITIALISATION — WIRE UP ALL EVENT LISTENERS AND AUTO-LOAD ON DOM READY
+// ══════════════════════════════════════════════════════════════════════════════
+
 function initBuilderPage() {
+    // READ PRE-SELECTED DASHBOARD ID FROM THE DOM DATA ATTRIBUTE
     const builderLayout = document.getElementById('builderLayout');
     if (builderLayout) {
         const selectedDashboardId = builderLayout.dataset.selectedDashboardId;
         currentDashboardId = selectedDashboardId ? Number(selectedDashboardId) : null;
     }
 
+    // ATTACH DATASET DROPDOWN CHANGE HANDLER AND AUTO-LOAD IF PRE-SELECTED
     const dsSelect = document.getElementById('datasetSelect');
     if (dsSelect) {
         dsSelect.addEventListener('change', loadDataset);
         if (dsSelect.value) loadDataset();
     }
 
+    // LOAD A PREVIOUSLY SAVED DASHBOARD IF ONE WAS PRE-SELECTED
     if (currentDashboardId) {
         loadDashboard(currentDashboardId);
     }
 
+    // BIND TAB, CHART TYPE, AND GRID LAYOUT BUTTON LISTENERS
     document.querySelectorAll('.tab-btn').forEach((btn) => {
         btn.addEventListener('click', () => switchTab(btn.dataset.tab, btn));
     });
@@ -536,6 +654,20 @@ function initBuilderPage() {
 
     const addChartBtn = document.getElementById('addChartBtn');
     if (addChartBtn) addChartBtn.addEventListener('click', () => addChart());
+
+    // BIND FORECAST TOGGLE TO SHOW/HIDE THE PERIOD INPUT
+    const forecastToggle = document.getElementById('forecastToggle');
+    if (forecastToggle) {
+        forecastToggle.addEventListener('change', () => {
+            const periodGroup = document.getElementById('forecastPeriodGroup');
+            if (periodGroup) periodGroup.style.display = forecastToggle.checked ? '' : 'none';
+        });
+    }
+
+    const xColumnSelect = document.getElementById('xColumn');
+    if (xColumnSelect) {
+        xColumnSelect.addEventListener('change', updateForecastVisibility);
+    }
 
     const cleanDataBtn = document.getElementById('cleanDataBtn');
     if (cleanDataBtn) cleanDataBtn.addEventListener('click', cleanSelectedDataset);
@@ -573,6 +705,7 @@ function initBuilderPage() {
         });
     }
 
+    // DELEGATE CLICK EVENTS ON THE CHART GRID FOR REMOVE AND TOGGLE-SIZE ACTIONS
     const chartGrid = document.getElementById('chartGrid');
     if (chartGrid) {
         chartGrid.addEventListener('click', (event) => {
@@ -591,6 +724,7 @@ function initBuilderPage() {
         });
     }
 
+    // DELEGATE CLICK EVENTS ON CHAT MESSAGES FOR AI CHART SUGGESTION BUTTONS
     const chatMessages = document.getElementById('chatMessages');
     if (chatMessages) {
         chatMessages.addEventListener('click', (event) => {
@@ -607,6 +741,7 @@ function initBuilderPage() {
     }
 }
 
+// RUN INITIALISATION WHEN THE DOM IS READY
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initBuilderPage);
 } else {

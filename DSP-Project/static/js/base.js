@@ -1,3 +1,7 @@
+// ══════════════════════════════════════════════════════════════════════════════
+// FLASH AUTO-DISMISS — FADE OUT SERVER-RENDERED FLASH MESSAGES AFTER 4 SECONDS
+// ══════════════════════════════════════════════════════════════════════════════
+
 setTimeout(() => {
     document.querySelectorAll('.flash').forEach((el) => {
         el.style.opacity = '0';
@@ -5,6 +9,10 @@ setTimeout(() => {
         setTimeout(() => el.remove(), 300);
     });
 }, 4000);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TOAST NOTIFICATIONS — GLOBAL HELPER TO SHOW TEMPORARY FEEDBACK MESSAGES
+// ══════════════════════════════════════════════════════════════════════════════
 
 window.showToast = function showToast(message, type = 'success') {
     const container = document.getElementById('flashContainer');

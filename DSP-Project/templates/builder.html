@@ -5,7 +5,7 @@
 <div class="builder-layout" id="builderLayout" data-selected-dashboard-id="{{ selected_dashboard_id|default('', true) }}">
     <!-- LEFT SIDEBAR -->
     <div class="sidebar" id="sidebar">
-        <!-- Dataset selector -->
+        <!-- DATASET SELECTOR AND CLEAN BUTTON -->
         <div class="sidebar-section">
             <div class="sidebar-section-title">Dataset</div>
             <select class="form-select" id="datasetSelect">
@@ -30,14 +30,14 @@
             </div>
         </div>
 
-        <!-- Tabs: Chart Config / Data Preview -->
+        <!-- TABS -->
         <div class="tab-bar">
             <button class="tab-btn active" type="button" data-tab="config">Chart</button>
             <button class="tab-btn" type="button" data-tab="preview">Data</button>
             <button class="tab-btn" type="button" data-tab="stats">Stats</button>
         </div>
 
-        <!-- Chart Config Tab -->
+        <!-- CHART CONFIG TAB -->
         <div class="tab-content active" id="tab-config">
             <div class="sidebar-section">
                 <div class="sidebar-section-title">Chart Type</div>
@@ -112,6 +112,26 @@
                 <input type="text" class="form-input" id="chartTitle" placeholder="Auto-generated if blank">
             </div>
 
+            <!-- FORECAST TOGGLE (VISIBLE ONLY FOR LINE/AREA WITH DATETIME X-AXIS) -->
+            <div class="sidebar-section forecast-section" id="forecastSection" style="display:none;">
+                <div class="sidebar-section-title">Predictive Forecast</div>
+                <label class="toggle-label">
+                    <input type="checkbox" id="forecastToggle">
+                    <span class="toggle-switch"></span>
+                    <span class="toggle-text">Generate Forecast</span>
+                </label>
+                <div class="form-group mt-1" id="forecastPeriodGroup" style="display:none;">
+                    <label class="form-label">Forecast Periods</label>
+                    <select class="form-select" id="forecastPeriods">
+                        <option value="7">7 days</option>
+                        <option value="14">14 days</option>
+                        <option value="30" selected>30 days</option>
+                        <option value="60">60 days</option>
+                        <option value="90">90 days</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="sidebar-section">
                 <div class="sidebar-section-title">Size</div>
                 <div class="flex gap-1">
@@ -126,7 +146,7 @@
             </button>
         </div>
 
-        <!-- Data Preview Tab -->
+        <!-- DATA PREVIEW TAB -->
         <div class="tab-content" id="tab-preview">
             <div id="dataPreviewContainer" class="data-preview-container">
                 <div class="empty-state">
@@ -135,7 +155,7 @@
             </div>
         </div>
 
-        <!-- Stats Tab -->
+        <!-- STATS TAB -->
         <div class="tab-content" id="tab-stats">
             <div id="dataStatsContainer">
                 <div class="empty-state">
@@ -204,7 +224,7 @@
     </div>
 </div>
 
-<!-- Mobile toggles -->
+<!-- MOBILE PANEL TOGGLES — SIDEBAR AND CHAT BUTTONS ON SMALL SCREENS -->
 <div class="panel-toggle toggle-sidebar" id="toggleSidebarBtn">
     <i class="fas fa-sliders-h"></i>
 </div>

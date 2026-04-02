@@ -1,3 +1,4 @@
+
 import os
 import json
 import uuid
@@ -18,13 +19,15 @@ import base64
 import numpy as np
 from dotenv import load_dotenv
 
+# APP CONFIGURATION — FLASK INSTANCE, PATHS, UPLOAD LIMITS, AND ENV VARS
+
 BASE_DIR = os.path.dirname(__file__)
 load_dotenv(os.path.join(BASE_DIR, '.env'), override=True)
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
 app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads')
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB UPLOAD SIZE LIMIT
 app.config['GEMINI_API_KEY'] = os.getenv('GEMINI_API_KEY', '').strip().strip('"').strip("'")
 ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls', 'json', 'tsv'}
 
@@ -32,7 +35,7 @@ DATABASE = os.path.join(BASE_DIR, 'dashboard.db')
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# ─── Database ───────────────────────────────────────────────────────────────
+# DATABASE — SQLITE CONNECTION MANAGEMENT AND SCHEMA INITIALISATION
 
 def get_db():
     if 'db' not in g:
@@ -42,6 +45,7 @@ def get_db():
 
 @app.teardown_appcontext
 def close_db(exception):
+    # AUTOMATICALLY CLOSE THE DB CONNECTION WHEN THE REQUEST ENDS
     db = g.pop('db', None)
     if db is not None:
         db.close()
@@ -91,7 +95,10 @@ def init_db():
     ''')
     db.close()
 
+# CREATE TABLES ON STARTUP IF THEY DO NOT ALREADY EXIST
 init_db()
+
+# PASSWORD HELPERS — HASH AND VERIFY USER PASSWORDS USING WERKZEUG
 
 def hash_password(password):
     return generate_password_hash(password)
@@ -99,9 +106,11 @@ def hash_password(password):
 def check_password(password, password_hash):
     return check_password_hash(password_hash, password)
 
-# ─── Auth decorator ─────────────────────────────────────────────────────────
+# AUTH DECORATOR AND FILE VALIDATION — PROTECT ROUTES AND CHECK UPLOADS
+
 
 def login_required(f):
+    # DECORATOR THAT REDIRECTS UNAUTHENTICATED USERS TO THE LOGIN PAGE
     @wraps(f)
     def decorated(*args, **kwargs):
         if 'user_id' not in session:
@@ -111,10 +120,13 @@ def login_required(f):
     return decorated
 
 def allowed_file(filename):
+    # RETURN TRUE IF THE FILE EXTENSION IS IN THE ALLOWED SET
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# COLUMN INFERENCE — DETECT NUMERIC, DATETIME, AND CATEGORICAL COLUMNS
+
 def infer_columns_info(df):
-    # Record column info for quick processing
+    # ITERATE EVERY COLUMN AND CLASSIFY IT AS NUMERIC, DATETIME, OR CATEGORICAL
     columns_info = []
     for col in df.columns:
         dtype = str(df[col].dtype)
@@ -122,13 +134,29 @@ def infer_columns_info(df):
             col_type = 'numeric'
         elif 'datetime' in dtype:
             col_type = 'datetime'
+        elif dtype == 'object':
+            # TRY PARSING A SAMPLE OF OBJECT COLUMNS TO DETECT DATE-LIKE STRINGS
+            sample = df[col].dropna().head(20)
+            if len(sample) > 0:
+                try:
+                    pd.to_datetime(sample)
+                    col_type = 'datetime'
+                    # CONVERT THE ENTIRE COLUMN TO PROPER DATETIME DTYPE IN-PLACE
+                    df[col] = pd.to_datetime(df[col], errors='coerce')
+                    dtype = str(df[col].dtype)
+                except (ValueError, TypeError):
+                    col_type = 'categorical'
+            else:
+                col_type = 'categorical'
         else:
             col_type = 'categorical'
         columns_info.append({'name': col, 'type': col_type, 'dtype': dtype})
     return columns_info
 
+# DATASET HIGHLIGHTS — AUTO-GENERATE KEY INSIGHT BULLETS FOR THE SIDEBAR
+
 def build_dataset_highlights(df, columns):
-    # Generate highlight bullets for a dataset.
+    # BUILD A LIST OF UP TO 4 HUMAN-READABLE HIGHLIGHT STRINGS ABOUT THE DATA
     highlights = []
     row_count = len(df)
     col_count = len(df.columns)
@@ -186,31 +214,46 @@ def build_dataset_highlights(df, columns):
 
     return highlights[:4]
 
-# ─── Helper: load dataset ──────────────────────────────────────────────────
+# DATASET LOADER — READ A FILE FROM DISK AND AUTO-CONVERT DATE COLUMNS
 
 def load_dataset(dataset_row):
+    # LOAD THE CORRECT FILE FORMAT BASED ON THE STORED FILE_TYPE
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], dataset_row['filename'])
     ft = dataset_row['file_type']
     if ft == 'csv':
-        return pd.read_csv(filepath)
+        df = pd.read_csv(filepath)
     elif ft in ('xlsx', 'xls'):
-        return pd.read_excel(filepath)
+        df = pd.read_excel(filepath)
     elif ft == 'json':
-        return pd.read_json(filepath)
+        df = pd.read_json(filepath)
     elif ft == 'tsv':
-        return pd.read_csv(filepath, sep='\t')
-    return None
+        df = pd.read_csv(filepath, sep='\t')
+    else:
+        return None
+    # AUTO-CONVERT DATE-LIKE STRING COLUMNS TO PROPER DATETIME OBJECTS
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            sample = df[col].dropna().head(20)
+            if len(sample) > 0:
+                try:
+                    pd.to_datetime(sample)
+                    df[col] = pd.to_datetime(df[col], errors='coerce')
+                except (ValueError, TypeError):
+                    pass
+    return df
 
-# ─── Routes: Auth ───────────────────────────────────────────────────────────
+# ROUTES: AUTHENTICATION — LOGIN, REGISTER, LOGOUT, AND ROOT REDIRECT
 
 @app.route('/')
 def index():
+    # REDIRECT LOGGED-IN USERS TO DASHBOARD, OTHERS TO LOGIN
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # VALIDATE CREDENTIALS ON POST; SET SESSION AND REDIRECT ON SUCCESS
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
@@ -225,6 +268,7 @@ def login():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    # VALIDATE FORM FIELDS, HASH PASSWORD, AND INSERT NEW USER ROW
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         email = request.form.get('email', '').strip()
@@ -252,14 +296,16 @@ def register():
 
 @app.route('/logout')
 def logout():
+    # CLEAR THE SESSION AND SEND THE USER BACK TO THE LOGIN PAGE
     session.clear()
     return redirect(url_for('login'))
 
-# ─── Routes: Dashboard ─────────────────────────────────────────────────────
+# ROUTES: DASHBOARD — MAIN LANDING PAGE WITH DATASETS AND SAVED DASHBOARDS
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    # FETCH ALL USER DATASETS AND DASHBOARDS, THEN RENDER THE HOME PAGE
     db = get_db()
     datasets = db.execute(
         'SELECT * FROM datasets WHERE user_id = ? ORDER BY uploaded_at DESC',
@@ -273,7 +319,7 @@ def dashboard():
     ).fetchall()
     return render_template('dashboard.html', datasets=datasets, dashboards=dashboards)
 
-# ─── Routes: File Upload ───────────────────────────────────────────────────
+# Routes: File Upload
 
 @app.route('/upload', methods=['POST'])
 @login_required
@@ -321,7 +367,7 @@ def upload_file():
         os.remove(filepath)
         return jsonify({'error': f'Error processing file: {str(e)}'}), 400
 
-# ─── Routes: Dataset API ───────────────────────────────────────────────────
+# Routes: Dataset API
 
 @app.route('/api/dataset/<int:dataset_id>/preview')
 @login_required
@@ -336,8 +382,14 @@ def dataset_preview(dataset_id):
     df = load_dataset(dataset)
     if df is None:
         return jsonify({'error': 'Could not load dataset'}), 500
-    columns = json.loads(dataset['columns_json'])
-    preview = df.head(50).to_dict(orient='records')
+    # RE-INFER COLUMN TYPES FROM THE LIVE DATAFRAME (HANDLES DATE AUTO-DETECTION)
+    columns = infer_columns_info(df)
+    # CONVERT DATETIME COLUMNS TO ISO STRINGS FOR SAFE JSON SERIALIZATION
+    preview_df = df.head(50).copy()
+    for col_info in columns:
+        if col_info['type'] == 'datetime' and col_info['name'] in preview_df.columns:
+            preview_df[col_info['name']] = preview_df[col_info['name']].dt.strftime('%Y-%m-%d').fillna('')
+    preview = preview_df.to_dict(orient='records')
     stats = {}
     for col_info in columns:
         col = col_info['name']
@@ -367,6 +419,7 @@ def dataset_preview(dataset_id):
 @app.route('/api/dataset/<int:dataset_id>/columns')
 @login_required
 def dataset_columns(dataset_id):
+    # RETURN THE STORED COLUMN METADATA JSON FOR A GIVEN DATASET
     db = get_db()
     dataset = db.execute(
         'SELECT columns_json FROM datasets WHERE id = ? AND user_id = ?',
@@ -379,6 +432,7 @@ def dataset_columns(dataset_id):
 @app.route('/api/dataset/<int:dataset_id>/clean', methods=['POST'])
 @login_required
 def clean_dataset(dataset_id):
+    # FILL MISSING NUMERIC VALUES WITH COLUMN MEANS AND SAVE AS A NEW DATASET
     db = get_db()
     dataset = db.execute(
         'SELECT * FROM datasets WHERE id = ? AND user_id = ?',
@@ -440,16 +494,99 @@ def clean_dataset(dataset_id):
         'message': f'Created cleaned dataset with {filled_cells:,} missing values filled across {cleaned_columns} numeric columns.'
     })
 
-# ─── Routes: Chart Generation ──────────────────────────────────────────────
+# Routes: Chart Generation ──────────────────────────────────────────────
 
 COLORS = ['#5b6ef5','#8b5cf6','#34d399','#fbbf24','#f87171','#38bdf8','#fb923c','#a78bfa','#4ade80','#f472b6']
 
+# Forecasting Helper 
+
+def generate_forecast(df, x_col, y_col, periods=30):
+    """
+    RETURNS (FORECAST_DATES, PREDICTED, CONF_LOWER, CONF_UPPER) OR RAISES
+    A VALUEERROR WITH A USER-FRIENDLY MESSAGE ON FAILURE.
+    """
+    work = df[[x_col, y_col]].copy()
+    work[x_col] = pd.to_datetime(work[x_col], errors='coerce')
+    work = work.dropna(subset=[x_col, y_col])
+
+    # ENFORCE MINIMUM DATA POINTS FOR A MEANINGFUL FORECAST
+    if len(work) < 10:
+        raise ValueError(
+            'Not enough historical data to generate a forecast. '
+            'At least 10 data points are required.'
+        )
+
+    work = work.sort_values(x_col)
+    work = work.set_index(x_col)
+
+    # RESAMPLE TO A UNIFORM FREQUENCY AND FILL GAPS (HANDLES WEEKENDS / MISSING DAYS)
+    freq = pd.infer_freq(work.index)
+    if freq is None:
+        freq = 'D'
+    work = work.resample(freq).sum()
+    work = work.ffill().fillna(0)
+
+    series = work[y_col].astype(float)
+
+    predicted = None
+    conf_lower = None
+    conf_upper = None
+
+    # PRIMARY MODEL: HOLT-WINTERS EXPONENTIAL SMOOTHING (CAPTURES TREND WELL)
+    from statsmodels.tsa.holtwinters import ExponentialSmoothing
+    try:
+        hw_model = ExponentialSmoothing(
+            series,
+            trend='add',          
+            seasonal=None,        
+            damped_trend=True,    
+        ).fit(optimized=True)
+
+        predicted = hw_model.forecast(periods)
+
+        # BUILD APPROXIMATE 95% CONFIDENCE INTERVAL FROM RESIDUAL STD
+        residuals = series - hw_model.fittedvalues
+        residual_std = float(residuals.std())
+        conf_lower = predicted - 1.96 * residual_std
+        conf_upper = predicted + 1.96 * residual_std
+    except Exception:
+        pass
+
+    # FALLBACK MODEL: ARIMA IF HOLT-WINTERS FAILED TO FIT
+    if predicted is None:
+        from statsmodels.tsa.arima.model import ARIMA
+        try:
+            model = ARIMA(series, order=(2, 1, 2))
+            fitted = model.fit()
+        except Exception:
+            try:
+                model = ARIMA(series, order=(1, 1, 1))
+                fitted = model.fit()
+            except Exception as inner:
+                raise ValueError(
+                    f'Unable to fit forecasting model: {str(inner)}'
+                )
+        forecast_result = fitted.get_forecast(steps=periods)
+        predicted = forecast_result.predicted_mean
+        ci = forecast_result.conf_int(alpha=0.05)
+        conf_lower = ci.iloc[:, 0]
+        conf_upper = ci.iloc[:, 1]
+
+    # CONVERT INDEX AND VALUES TO JSON-SAFE LISTS
+    forecast_dates = [d.isoformat() for d in predicted.index]
+    predicted_vals = [None if pd.isna(v) else float(v) for v in predicted]
+    lower_vals = [None if pd.isna(v) else float(v) for v in conf_lower]
+    upper_vals = [None if pd.isna(v) else float(v) for v in conf_upper]
+
+    return forecast_dates, predicted_vals, lower_vals, upper_vals
+
+
 def safe_list(series):
-    """Convert pandas series to JSON-safe list."""
+    
     return [None if pd.isna(v) else (int(v) if isinstance(v, (np.integer,)) else (float(v) if isinstance(v, (np.floating,)) else v)) for v in series]
 
 def axis_value_label(column_name, agg=None, default='Value'):
-    """Build a human-friendly axis label for chart values."""
+    
     if agg == 'count':
         return 'Count'
     if column_name and agg:
@@ -457,7 +594,7 @@ def axis_value_label(column_name, agg=None, default='Value'):
     return column_name or default
 
 def apply_axis_titles(layout, chart_type, x_col=None, y_col=None, color_col=None, agg=None):
-    """Apply axis titles for cartesian Plotly charts based on selected columns."""
+    
     if chart_type in ('bar', 'line', 'scatter', 'area'):
         layout['xaxis']['title'] = {'text': x_col or ''}
         layout['yaxis']['title'] = {'text': axis_value_label(y_col, agg if chart_type == 'bar' else None)}
@@ -481,7 +618,7 @@ def apply_axis_titles(layout, chart_type, x_col=None, y_col=None, color_col=None
         layout['yaxis']['title'] = {'text': 'Columns'}
 
 def apply_axis_style_defaults(layout):
-    """Make axes easier to read and less likely to clip labels."""
+    
     for axis_name in ('xaxis', 'yaxis'):
         axis = layout.get(axis_name)
         if not axis:
@@ -501,9 +638,12 @@ def apply_axis_style_defaults(layout):
             },
         })
 
+# Routes: Chart API — Build Plotly Traces + Layout from User Selections
+
 @app.route('/api/chart', methods=['POST'])
 @login_required
 def generate_chart():
+    # EXTRACT CHART PARAMETERS FROM THE JSON REQUEST BODY
     data = request.json
     dataset_id = data.get('dataset_id')
     chart_type = data.get('chart_type', 'bar')
@@ -512,6 +652,8 @@ def generate_chart():
     color_col = data.get('color')
     agg = data.get('aggregation', 'sum')
     title = data.get('title', '')
+    forecast_enabled = data.get('forecast', False)
+    forecast_periods = int(data.get('forecast_periods', 30))
 
     db = get_db()
     dataset = db.execute(
@@ -527,6 +669,7 @@ def generate_chart():
 
     try:
         traces = []
+        # DEFAULT DARK-THEMED PLOTLY LAYOUT SHARED BY ALL CHART TYPES
         layout = {
             'title': {'text': title or f'{chart_type.title()} Chart', 'font': {'size': 14}},
             'paper_bgcolor': 'rgba(0,0,0,0)',
@@ -539,6 +682,7 @@ def generate_chart():
             'colorway': COLORS,
         }
 
+        # BAR / LINE / SCATTER / AREA — CARTESIAN TRACES WITH OPTIONAL COLOUR GROUPING
         if chart_type in ('bar', 'line', 'scatter', 'area'):
             if color_col and color_col != '':
                 groups = df[color_col].dropna().unique()
@@ -590,6 +734,7 @@ def generate_chart():
                     trace['fill'] = 'tozeroy'
                 traces.append(trace)
 
+        # PIE — AGGREGATE SLICES BY CATEGORY
         elif chart_type == 'pie':
             work_df = df
             if agg and y_col:
@@ -602,6 +747,7 @@ def generate_chart():
                 'textfont': {'color': '#e8eaef'},
             })
 
+        # HISTOGRAM — FREQUENCY DISTRIBUTION OF A SINGLE COLUMN
         elif chart_type == 'histogram':
             traces.append({
                 'type': 'histogram',
@@ -609,6 +755,7 @@ def generate_chart():
                 'marker': {'color': COLORS[0]},
             })
 
+        # BOX PLOT — STATISTICAL DISTRIBUTION WITH OPTIONAL COLOUR GROUPING
         elif chart_type == 'box':
             if color_col and color_col != '':
                 groups = df[color_col].dropna().unique()
@@ -628,6 +775,7 @@ def generate_chart():
                     'marker': {'color': COLORS[0]},
                 })
 
+        # VIOLIN — DENSITY-BASED DISTRIBUTION WITH OPTIONAL COLOUR GROUPING
         elif chart_type == 'violin':
             if color_col and color_col != '':
                 groups = df[color_col].dropna().unique()
@@ -651,6 +799,7 @@ def generate_chart():
                     'meanline': {'visible': True},
                 })
 
+        # HEATMAP — CORRELATION MATRIX OF ALL NUMERIC COLUMNS
         elif chart_type == 'heatmap':
             numeric_cols = df.select_dtypes(include='number').columns.tolist()
             corr = df[numeric_cols].corr()
@@ -664,6 +813,7 @@ def generate_chart():
             })
             layout['title']['text'] = title or 'Correlation Heatmap'
 
+        # SUNBURST — HIERARCHICAL BREAKDOWN OF Y GROUPED BY X
         elif chart_type == 'sunburst':
             labels, parents, values = [], [], []
             if y_col:
@@ -680,6 +830,7 @@ def generate_chart():
                 'marker': {'colors': COLORS},
             })
 
+        # TREEMAP — HIERARCHICAL BREAKDOWN OF Y GROUPED BY X (RECTANGULAR)
         elif chart_type == 'treemap':
             labels, parents, values = [], [], []
             if y_col:
@@ -696,6 +847,7 @@ def generate_chart():
                 'marker': {'colors': COLORS},
             })
 
+        # DEFAULT FALLBACK — RENDER AS BAR IF CHART TYPE IS UNRECOGNISED
         else:
             traces.append({
                 'type': 'bar',
@@ -704,18 +856,85 @@ def generate_chart():
                 'marker': {'color': COLORS[0]},
             })
 
+        # APPLY AXIS TITLES AND CONSISTENT STYLING TO ALL CHART TYPES
         apply_axis_titles(layout, chart_type, x_col, y_col, color_col, agg)
         apply_axis_style_defaults(layout)
 
-        return jsonify({'chart': {'data': traces, 'layout': layout}})
+        
+        # FORECASTING — APPEND PREDICTION TRACES IF ENABLED ON LINE/AREA
+        
+        forecast_meta = None
+        if forecast_enabled and chart_type in ('line', 'area'):
+            try:
+                # BUILD THE SAME AGGREGATED SERIES THE CHART USES
+                if agg and y_col:
+                    agg_df = df.groupby(x_col)[y_col].agg(agg).reset_index()
+                else:
+                    agg_df = df[[x_col, y_col]].copy()
+
+                dates, predicted, lower, upper = generate_forecast(
+                    agg_df, x_col, y_col, periods=forecast_periods
+                )
+
+                # FORECAST LINE (DASHED GOLD TRACE)
+                traces.append({
+                    'type': 'scatter',
+                    'mode': 'lines',
+                    'x': dates,
+                    'y': predicted,
+                    'name': 'Forecast',
+                    'line': {'color': '#fbbf24', 'dash': 'dot', 'width': 2},
+                    'showlegend': True,
+                })
+
+                # CONFIDENCE-INTERVAL UPPER BOUND (INVISIBLE LINE)
+                traces.append({
+                    'type': 'scatter',
+                    'mode': 'lines',
+                    'x': dates,
+                    'y': upper,
+                    'name': 'Upper CI',
+                    'line': {'width': 0},
+                    'showlegend': False,
+                })
+
+                # CONFIDENCE-INTERVAL LOWER BOUND (SHADED FILL BETWEEN BOUNDS)
+                traces.append({
+                    'type': 'scatter',
+                    'mode': 'lines',
+                    'x': dates,
+                    'y': lower,
+                    'name': 'Lower CI',
+                    'line': {'width': 0},
+                    'fill': 'tonexty',
+                    'fillcolor': 'rgba(251, 191, 36, 0.15)',
+                    'showlegend': False,
+                })
+
+                forecast_meta = {
+                    'periods': forecast_periods,
+                    'message': f'Forecast generated for the next {forecast_periods} periods.'
+                }
+
+            except ValueError as ve:
+                forecast_meta = {'error': str(ve)}
+            except Exception as fe:
+                forecast_meta = {'error': f'Forecasting failed: {str(fe)}'}
+
+        # ASSEMBLE AND RETURN THE FINAL JSON RESPONSE
+        response = {'chart': {'data': traces, 'layout': layout}}
+        if forecast_meta is not None:
+            response['forecast'] = forecast_meta
+        return jsonify(response)
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-# ─── Routes: Save / Load Dashboard ─────────────────────────────────────────
+# Routes: Save / Load Dashboard — Persist and Retrieve Dashboard Configurations
 
 @app.route('/api/dashboard/save', methods=['POST'])
 @login_required
 def save_dashboard():
+    # INSERT A NEW DASHBOARD OR UPDATE AN EXISTING ONE BY ID
     data = request.json
     name = data.get('name', 'Untitled Dashboard')
     dataset_id = data.get('dataset_id')
@@ -740,6 +959,7 @@ def save_dashboard():
 @app.route('/api/dashboard/<int:dashboard_id>')
 @login_required
 def get_dashboard(dashboard_id):
+    # FETCH A SINGLE DASHBOARD BY ID AND RETURN ITS CONFIG JSON
     db = get_db()
     d = db.execute(
         'SELECT * FROM dashboards WHERE id = ? AND user_id = ?',
@@ -757,6 +977,7 @@ def get_dashboard(dashboard_id):
 @app.route('/api/dashboard/<int:dashboard_id>/delete', methods=['POST'])
 @login_required
 def delete_dashboard(dashboard_id):
+    # PERMANENTLY DELETE A DASHBOARD RECORD
     db = get_db()
     db.execute('DELETE FROM dashboards WHERE id = ? AND user_id = ?', (dashboard_id, session['user_id']))
     db.commit()
@@ -765,6 +986,7 @@ def delete_dashboard(dashboard_id):
 @app.route('/api/dataset/<int:dataset_id>/delete', methods=['POST'])
 @login_required
 def delete_dataset(dataset_id):
+    # DELETE THE DATASET FILE FROM DISK, REMOVE LINKED DASHBOARDS, AND DELETE THE DB RECORD
     db = get_db()
     dataset = db.execute('SELECT * FROM datasets WHERE id = ? AND user_id = ?', (dataset_id, session['user_id'])).fetchone()
     if dataset:
@@ -776,7 +998,7 @@ def delete_dataset(dataset_id):
         db.commit()
     return jsonify({'success': True})
 
-# ─── Routes: Export Dashboard as HTML ───────────────────────────────────────
+# Routes: Export Dashboard as HTML
 
 @app.route('/api/dashboard/<int:dashboard_id>/export')
 @login_required
@@ -793,11 +1015,12 @@ def export_dashboard(dashboard_id):
     dataset = db.execute('SELECT * FROM datasets WHERE id = ?', (d['dataset_id'],)).fetchone()
     df = load_dataset(dataset) if dataset else None
 
-    # Generate chart JSON data for each chart config
+    # GENERATE CHART JSON DATA FOR EACH CHART CONFIG
     charts_json = []
     if df is not None:
         for chart_cfg in config.get('charts', []):
             try:
+                # RE-CREATE PLOTLY JSON FOR EACH SAVED CHART CONFIG
                 chart_data = generate_chart_json(df, chart_cfg)
                 if chart_data:
                     charts_json.append(chart_data)
@@ -810,8 +1033,10 @@ def export_dashboard(dashboard_id):
     return send_file(buf, mimetype='text/html', as_attachment=True,
                      download_name=f"{d['name'].replace(' ', '_')}_dashboard.html")
 
+# Routes: Chart JSON Helper — Generate Plotly Data+Layout for Export / Reuse
+
 def generate_chart_json(df, cfg):
-    """Generate Plotly.js JSON (data+layout) from a chart config dict."""
+    
     chart_type = cfg.get('chart_type', 'bar')
     x_col = cfg.get('x')
     y_col = cfg.get('y')
@@ -819,6 +1044,7 @@ def generate_chart_json(df, cfg):
     agg = cfg.get('aggregation', 'sum')
     title = cfg.get('title', '')
 
+    # DARK-THEMED EXPORT LAYOUT WITH MATCHING COLOUR PALETTE
     layout = {
         'title': {'text': title or f'{chart_type.title()} Chart'},
         'paper_bgcolor': '#181a21',
@@ -860,11 +1086,12 @@ def generate_chart_json(df, cfg):
 
     return {'data': traces, 'layout': layout}
 
-# ─── Routes: Gemini AI Chat ────────────────────────────────────────────────
+# Routes: Gemini AI Chat — AI-Powered Data Analysis and Chart Suggestions
 
 @app.route('/api/chat', methods=['POST'])
 @login_required
 def chat_with_ai():
+    # PARSE THE USER MESSAGE, DATASET ID, AND CURRENT CHART CONTEXT
     data = request.json
     dataset_id = data.get('dataset_id')
     user_message = data.get('message', '')
@@ -886,7 +1113,7 @@ def chat_with_ai():
     if df is None:
         return jsonify({'error': 'Could not load dataset'}), 500
 
-    # Build context about the dataset
+    # BUILD CONTEXT ABOUT THE DATASET (COLUMN STATS AND SAMPLE ROWS FOR THE PROMPT)
     columns_info = json.loads(dataset['columns_json'])
     sample = df.head(5).to_string()
     stats_lines = []
@@ -939,14 +1166,14 @@ When giving suggestions, take into account the existing dashboard charts to avoi
 
 Provide insights, patterns, and actionable analysis."""
 
-    # Save user message
+    # SAVE USER MESSAGE TO CHAT HISTORY TABLE
     db.execute(
         'INSERT INTO chat_history (user_id, dataset_id, role, message) VALUES (?, ?, ?, ?)',
         (session['user_id'], dataset_id, 'user', user_message)
     )
     db.commit()
 
-    # Get chat history for context
+    # RETRIEVE LAST 10 MESSAGES FOR CONVERSATIONAL CONTEXT
     history = db.execute(
         'SELECT role, message FROM chat_history WHERE user_id = ? AND dataset_id = ? ORDER BY created_at DESC LIMIT 10',
         (session['user_id'], dataset_id)
@@ -957,11 +1184,13 @@ Provide insights, patterns, and actionable analysis."""
         import urllib.request
         import urllib.error
 
+        # CONVERT CHAT HISTORY INTO GEMINI API CONTENT FORMAT
         contents = []
         for h in history:
             role = 'user' if h['role'] == 'user' else 'model'
             contents.append({'role': role, 'parts': [{'text': h['message']}]})
 
+        # SEND REQUEST TO GEMINI 2.0 FLASH VIA REST API
         payload = json.dumps({
             'system_instruction': {'parts': [{'text': system_prompt}]},
             'contents': contents,
@@ -978,14 +1207,14 @@ Provide insights, patterns, and actionable analysis."""
 
         ai_text = result['candidates'][0]['content']['parts'][0]['text']
 
-        # Save AI response
+        # PERSIST THE AI RESPONSE IN CHAT HISTORY
         db.execute(
             'INSERT INTO chat_history (user_id, dataset_id, role, message) VALUES (?, ?, ?, ?)',
             (session['user_id'], dataset_id, 'assistant', ai_text)
         )
         db.commit()
 
-        # Check for chart suggestion in response
+        # DETECT JSON CHART SUGGESTIONS EMBEDDED IN THE AI RESPONSE
         chart_suggestion = None
         if '"chart_suggestion"' in ai_text:
             try:
@@ -1006,9 +1235,12 @@ Provide insights, patterns, and actionable analysis."""
     except Exception as e:
         return jsonify({'error': f'Error: {str(e)}'}), 500
 
+# Routes: Chat History — Retrieve and Clear Conversation Logs
+
 @app.route('/api/chat/history/<int:dataset_id>')
 @login_required
 def chat_history(dataset_id):
+    # RETURN ALL CHAT MESSAGES FOR A GIVEN DATASET, ORDERED CHRONOLOGICALLY
     db = get_db()
     history = db.execute(
         'SELECT role, message, created_at FROM chat_history WHERE user_id = ? AND dataset_id = ? ORDER BY created_at',
@@ -1019,12 +1251,13 @@ def chat_history(dataset_id):
 @app.route('/api/chat/clear/<int:dataset_id>', methods=['POST'])
 @login_required
 def clear_chat(dataset_id):
+    # DELETE ALL CHAT HISTORY FOR THIS USER + DATASET COMBINATION
     db = get_db()
     db.execute('DELETE FROM chat_history WHERE user_id = ? AND dataset_id = ?', (session['user_id'], dataset_id))
     db.commit()
     return jsonify({'success': True})
 
-# ─── Builder page ──────────────────────────────────────────────────────────
+# Builder page
 
 @app.route('/builder')
 @login_required
@@ -1041,7 +1274,7 @@ def builder():
                            selected_dataset_id=dataset_id,
                            selected_dashboard_id=dashboard_id)
 
-# ─── Settings page ─────────────────────────────────────────────────────────
+# Settings page
 
 @app.route('/settings')
 @login_required

@@ -1,3 +1,7 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# IMPORTS — STANDARD LIBRARY, PANDAS, AND APPLICATION MODULE
+# ══════════════════════════════════════════════════════════════════════════════
+
 import io
 import json
 import os
@@ -11,7 +15,17 @@ import pandas as pd
 import app as app_module
 
 
+
+# TEST CLASS — UNIT TESTS FOR THE DATAFORGE APPLICATION
+
+
+
 class DataForgeAppTests(unittest.TestCase):
+
+    
+    # SETUP AND TEARDOWN — CREATE TEMP DIR, DB, AND TEST CLIENT BEFORE EACH TEST
+    
+
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp(prefix="dataforge_tests_")
         self.upload_dir = os.path.join(self.tmpdir, "uploads")
@@ -35,6 +49,8 @@ class DataForgeAppTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
+    # HELPER METHODS — CONNECT TO DB, CREATE USERS, LOGIN, AND SEED DATASETS
+
     def _connect(self):
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
@@ -52,12 +68,13 @@ class DataForgeAppTests(unittest.TestCase):
         return user_id
 
     def _login_session(self, user_id=None, username="alice"):
-        # ROUTING FLOW: PROTECTED ENDPOINTS REQUIRE SESSION USER_ID.
+        # SET SESSION USER_ID SO PROTECTED ENDPOINTS ALLOW ACCESS
         with self.client.session_transaction() as sess:
             sess["user_id"] = user_id or self.user_id
             sess["username"] = username
 
     def _create_dataset_record(self, df, original_name="sample.csv", ext="csv"):
+        # WRITE A DATAFRAME TO DISK AND INSERT A MATCHING DB ROW FOR TESTING
         filename = f"dataset_{original_name}"
         filepath = os.path.join(self.upload_dir, filename)
 
@@ -93,6 +110,8 @@ class DataForgeAppTests(unittest.TestCase):
         conn.close()
         return dataset_id
 
+    # TEST: HELPERS — PASSWORD HASHING, FILE VALIDATION, INFERENCE, SAFE_LIST
+
     def test_helpers_basic_behavior(self):
         password_hash = app_module.hash_password("abc123")
         self.assertTrue(app_module.check_password("abc123", password_hash))
@@ -115,6 +134,9 @@ class DataForgeAppTests(unittest.TestCase):
         self.assertEqual(app_module.axis_value_label("sales", "sum"), "Sum of sales")
         self.assertEqual(app_module.axis_value_label(None, "count"), "Count")
 
+    # ROUTE PROTECTION — UNAUTHENTICATED USERS ARE REDIRECTED TO LOGIN
+    
+
     def test_index_and_protected_redirects(self):
         res = self.client.get("/")
         self.assertEqual(res.status_code, 302)
@@ -123,6 +145,8 @@ class DataForgeAppTests(unittest.TestCase):
         res = self.client.get("/dashboard")
         self.assertEqual(res.status_code, 302)
         self.assertIn("/login", res.location)
+
+    # AUTH FLOW — REGISTER, LOGIN, AND LOGOUT ROUND-TRIP
 
     def test_register_login_logout_flow(self):
         res = self.client.post(
@@ -149,6 +173,8 @@ class DataForgeAppTests(unittest.TestCase):
         res = self.client.get("/logout", follow_redirects=False)
         self.assertEqual(res.status_code, 302)
         self.assertIn("/login", res.location)
+
+    # UPLOAD, PREVIEW, AND COLUMNS — FILE UPLOAD END-TO-END
 
     def test_upload_and_preview_and_columns(self):
         self._login_session()
@@ -179,6 +205,8 @@ class DataForgeAppTests(unittest.TestCase):
         self.assertEqual(columns_res.status_code, 200)
         self.assertIsInstance(columns_res.get_json(), list)
 
+    # DATA CLEANING — VERIFY CLEANED DATASET IS CREATED CORRECTLY
+
     def test_clean_dataset_creates_new_dataset(self):
         self._login_session()
         df = pd.DataFrame(
@@ -201,6 +229,8 @@ class DataForgeAppTests(unittest.TestCase):
         self.assertIsNotNone(cleaned_row)
         self.assertTrue(os.path.exists(os.path.join(self.upload_dir, cleaned_row["filename"])))
 
+    # CHART GENERATION — API CHART ENDPOINT AND EXPORT HELPER
+
     def test_chart_generation_and_chart_json(self):
         self._login_session()
         df = pd.DataFrame(
@@ -212,7 +242,7 @@ class DataForgeAppTests(unittest.TestCase):
         )
         dataset_id = self._create_dataset_record(df, original_name="chart.csv", ext="csv")
 
-        # ROUTING FLOW: /API/CHART IS PRIMARY CHART ENTRYPOINT.
+        # /API/CHART IS THE PRIMARY CHART ENTRYPOINT
         res = self.client.post(
             "/api/chart",
             json={
@@ -240,6 +270,8 @@ class DataForgeAppTests(unittest.TestCase):
         )
         self.assertIn("data", export_chart)
         self.assertIn("layout", export_chart)
+
+    # DASHBOARD CRUD — SAVE, GET, EXPORT, AND DELETE
 
     def test_dashboard_save_get_delete_and_export(self):
         self._login_session()
@@ -278,6 +310,8 @@ class DataForgeAppTests(unittest.TestCase):
         self.assertEqual(del_res.status_code, 200)
         self.assertTrue(del_res.get_json()["success"])
 
+    # DATASET DELETE — VERIFY FILE AND LINKED DASHBOARDS ARE REMOVED
+
     def test_dataset_delete_cleans_related_dashboards(self):
         self._login_session()
         df = pd.DataFrame({"category": ["A", "B"], "value": [2, 3]})
@@ -303,6 +337,8 @@ class DataForgeAppTests(unittest.TestCase):
         conn.close()
         self.assertIsNone(ds)
         self.assertEqual(len(dashboards), 0)
+
+    # CHAT — API KEY GUARD, HISTORY RETRIEVAL, AND CLEAR
 
     def test_chat_history_and_clear_and_no_api_key_guard(self):
         self._login_session()
@@ -336,12 +372,16 @@ class DataForgeAppTests(unittest.TestCase):
         self.assertEqual(clear_res.status_code, 200)
         self.assertTrue(clear_res.get_json()["success"])
 
+    # BUILDER AND SETTINGS PAGES — CONFIRM PAGES RENDER SUCCESSFULLY
+
     def test_builder_and_settings_pages(self):
         self._login_session()
         builder_res = self.client.get("/builder")
         settings_res = self.client.get("/settings")
         self.assertEqual(builder_res.status_code, 200)
         self.assertEqual(settings_res.status_code, 200)
+
+
 
 
 if __name__ == "__main__":

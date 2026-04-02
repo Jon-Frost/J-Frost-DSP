@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="main-content">
-    <!-- Hero -->
+    <!-- HERO SECTION -->
     <div class="hero-section">
         <h2>Welcome back, {{ session.get('username', 'User') }}</h2>
         <p>Upload datasets, build interactive dashboards, and chat with AI about your data.</p>
@@ -17,7 +17,7 @@
         </div>
     </div>
 
-    <!-- Datasets -->
+    <!-- DATASETS — CARD GRID OF ALL UPLOADED DATA FILES -->
     <div class="section-header">
         <div>
             <h3>Datasets</h3>
@@ -62,7 +62,7 @@
     </div>
     {% endif %}
 
-    <!-- Saved Dashboards -->
+    <!-- SAVED DASHBOARDS — CLICKABLE CARDS TO REOPEN PAST BUILDS -->
     <div class="section-header mt-3">
         <h3>Saved Dashboards</h3>
         <span class="count">{{ dashboards|length }} dashboard{{ 's' if dashboards|length != 1 }}</span>
@@ -94,7 +94,7 @@
     {% endif %}
 </div>
 
-<!-- Upload Modal -->
+<!-- UPLOAD MODAL — DRAG-AND-DROP FILE UPLOAD -->
 <div class="modal-overlay" id="uploadModal">
     <div class="modal">
         <div class="modal-header">

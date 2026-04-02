@@ -1,3 +1,7 @@
+
+/* CSS CUSTOM PROPERTIES — DESIGN TOKENS FOR COLOURS, SPACING, AND FONTS     */
+
+
 :root {
     --bg-void: #eef8fb;
     --bg-surface: #f6fcfe;
@@ -28,6 +32,8 @@
     --font-body: 'DM Sans', sans-serif;
 }
 
+/* RESET AND BASE STYLES — BOX-SIZING, BODY DEFAULTS, AND SCROLLBARS        */
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -42,6 +48,8 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* NAVBAR — FIXED TOP BAR WITH BRAND, NAVIGATION LINKS, AND USER AVATAR     */
 
 .navbar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 100;
@@ -90,6 +98,8 @@ body {
     font-size: 12px; font-weight: 700; color: white;
 }
 
+/* MAIN CONTENT AND FORMS — PAGE WRAPPER, INPUTS, AND SELECT ELEMENTS       */
+
 .main-content { margin-top: 56px; padding: 32px; min-height: calc(100vh - 56px); }
 
 .form-group { margin-bottom: 18px; }
@@ -115,6 +125,8 @@ body {
 }
 .form-select { cursor: pointer; }
 .form-select option { background: var(--bg-card); }
+
+/* BUTTONS — PRIMARY, SECONDARY, DANGER, GHOST, AND SIZE VARIANTS          */
 
 .btn {
     display: inline-flex; align-items: center; gap: 8px;
@@ -143,6 +155,8 @@ body {
     border-radius: var(--radius-sm);
 }
 
+/* CARDS — GENERIC CONTAINER WITH HEADER AND BODY SECTIONS                  */
+
 .card {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -158,6 +172,8 @@ body {
     font-family: var(--font-display); font-size: 15px; font-weight: 600;
 }
 .card-body { padding: 22px; }
+
+/* FLASH MESSAGES — FIXED TOAST NOTIFICATIONS WITH SLIDE-IN ANIMATION       */
 
 .flash-container { position: fixed; top: 70px; right: 24px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
 .flash {
@@ -176,6 +192,8 @@ body {
     to { transform: translateX(0); opacity: 1; }
 }
 
+/* EMPTY STATE — PLACEHOLDER UI FOR SECTIONS WITH NO DATA                   */
+
 .empty-state {
     text-align: center; padding: 60px 20px;
     color: var(--text-muted);
@@ -183,6 +201,8 @@ body {
 .empty-state i { font-size: 48px; margin-bottom: 16px; display: block; }
 .empty-state h3 { font-family: var(--font-display); font-size: 18px; margin-bottom: 8px; color: var(--text-secondary); }
 .empty-state p { font-size: 14px; margin-bottom: 20px; }
+
+/* GRID UTILITIES AND RESPONSIVE BREAKPOINTS                                */
 
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
@@ -196,6 +216,8 @@ body {
     .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
     .main-content { padding: 20px 16px; }
 }
+
+/* TEXT, SPACING, AND LAYOUT UTILITY CLASSES                                */
 
 .text-muted { color: var(--text-muted); }
 .text-secondary { color: var(--text-secondary); }
@@ -217,6 +239,8 @@ body {
 }
 .badge-accent { background: var(--accent-glow); color: var(--accent); }
 .badge-success { background: rgba(105,185,143,0.15); color: #4b9a72; }
+
+/* PAGE HEADER, SPINNER, AND MODAL OVERLAY                                  */
 
 .page-header {
     display: flex; align-items: center; justify-content: space-between;
@@ -261,6 +285,8 @@ body {
 .modal-body { padding: 24px; }
 .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
 
+/* HERO SECTION — GRADIENT BANNER ON THE DASHBOARD PAGE                     */
+
 .hero-section {
     background: linear-gradient(135deg, rgba(79,168,213,0.1), rgba(105,185,143,0.08));
     border: 1px solid var(--border);
@@ -282,6 +308,8 @@ body {
 }
 .hero-section p { color: var(--text-secondary); font-size: 14px; }
 .hero-actions { display: flex; gap: 12px; margin-top: 20px; }
+
+/* UPLOAD ZONE — DRAG-AND-DROP FILE INPUT WITH PROGRESS BAR                 */
 
 .upload-zone {
     border: 2px dashed var(--border);
@@ -317,6 +345,8 @@ body {
     justify-content: space-between;
     margin-bottom: 6px;
 }
+
+/* DATASET AND DASHBOARD CARDS — ITEM DISPLAY WITH METADATA AND ACTIONS     */
 
 .dataset-card {
     background: var(--bg-card);
@@ -369,6 +399,8 @@ body {
     font-size: 12px; color: var(--text-muted);
     display: flex; align-items: center; gap: 12px;
 }
+
+/* BUILDER LAYOUT — THREE-COLUMN GRID: SIDEBAR, CANVAS, CHAT PANEL          */
 
 .section-header {
     display: flex; align-items: center; justify-content: space-between;
@@ -451,6 +483,8 @@ body {
 }
 .chart-grid.cols-1 { grid-template-columns: 1fr; }
 .chart-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+
+/* CHART CELLS — RESIZABLE PLOTLY CONTAINERS WITHIN THE CANVAS GRID         */
 
 .chart-cell {
     background: var(--bg-card);
@@ -610,6 +644,8 @@ body {
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
+/* DATA PREVIEW TABLE — SCROLLABLE TABLE OF DATASET ROWS                    */
+
 .data-preview-table {
     width: 100%; overflow-x: auto;
     font-size: 11px; font-family: var(--font-mono);
@@ -646,6 +682,8 @@ body {
     overflow: auto;
 }
 .full-span { grid-column: 1 / -1; }
+
+/* STATS CARDS AND HIGHLIGHTS — PER-COLUMN STATISTICS AND KEY INSIGHTS      */
 
 .stats-card {
     margin-bottom: 14px;
@@ -713,6 +751,61 @@ body {
     margin-bottom: 0;
 }
 
+/* FORECAST TOGGLE — ON/OFF SWITCH TO ENABLE PREDICTIVE ANALYTICS           */
+
+/* FORECAST TOGGLE SWITCH */
+.forecast-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+}
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary);
+    user-select: none;
+}
+.toggle-label input[type="checkbox"] {
+    display: none;
+}
+.toggle-switch {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    background: var(--border);
+    border-radius: 10px;
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: white;
+    border-radius: 50%;
+    transition: var(--transition);
+}
+.toggle-label input:checked + .toggle-switch {
+    background: var(--accent);
+}
+.toggle-label input:checked + .toggle-switch::after {
+    transform: translateX(16px);
+}
+.toggle-text {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* RESPONSIVE BREAKPOINTS — COLLAPSE BUILDER LAYOUT FOR NARROW SCREENS     */
+
 @media (max-width: 1100px) {
     .builder-layout { grid-template-columns: 1fr; }
     .sidebar, .chat-panel { display: none; }
@@ -721,6 +814,8 @@ body {
     .chat-panel.mobile-show { right: 0; }
     .panel-toggle { display: flex; }
 }
+
+/* AUTH PAGES — LOGIN AND REGISTER FORM STYLING                             */
 
 .auth-container {
     min-height: 100vh;
@@ -774,6 +869,8 @@ body {
     width: 100%; padding: 12px; font-size: 14px;
     margin-top: 8px;
 }
+
+/* SETTINGS PAGE — API KEY CONFIG, ACCOUNT INFO, AND HELP BOXES             */
 
 .settings-container {
     max-width: 640px;
@@ -857,6 +954,8 @@ body {
     font-size: 13px;
     color: var(--text-muted);
 }
+
+/* EXPORT PAGE — STANDALONE DASHBOARD EXPORT WITH RESPONSIVE CHART GRID     */
 
 .export-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;

@@ -1,3 +1,7 @@
+// ══════════════════════════════════════════════════════════════════════════════
+// UPLOAD MODAL — OPEN AND CLOSE THE FILE UPLOAD OVERLAY
+// ══════════════════════════════════════════════════════════════════════════════
+
 const uploadZone = document.getElementById('uploadZone');
 const fileInput = document.getElementById('fileInput');
 const uploadModal = document.getElementById('uploadModal');
@@ -10,7 +14,12 @@ function closeUploadModal() {
     if (uploadModal) uploadModal.classList.remove('active');
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// FILE UPLOAD — XHR UPLOAD WITH PROGRESS BAR AND STATUS FEEDBACK
+// ══════════════════════════════════════════════════════════════════════════════
+
 function uploadFile(file) {
+    // SEND THE FILE VIA XHR, UPDATE THE PROGRESS BAR, AND RELOAD ON SUCCESS
     const progress = document.getElementById('uploadProgress');
     const bar = document.getElementById('uploadBar');
     const status = document.getElementById('uploadStatus');
@@ -56,7 +65,12 @@ function uploadFile(file) {
     xhr.send(formData);
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// DELETE OPERATIONS — CONFIRM AND REMOVE DATASETS OR DASHBOARDS
+// ══════════════════════════════════════════════════════════════════════════════
+
 function deleteDataset(id, name) {
+    // PROMPT FOR CONFIRMATION, THEN DELETE THE DATASET AND ALL LINKED DASHBOARDS
     if (!confirm(`Delete "${name}" and all associated dashboards?`)) return;
     fetch(`/api/dataset/${id}/delete`, { method: 'POST' })
         .then((r) => r.json())
@@ -67,6 +81,7 @@ function deleteDataset(id, name) {
 }
 
 function deleteDashboard(id, name) {
+    // PROMPT FOR CONFIRMATION, THEN DELETE THE DASHBOARD RECORD
     if (!confirm(`Delete dashboard "${name}"?`)) return;
     fetch(`/api/dashboard/${id}/delete`, { method: 'POST' })
         .then((r) => r.json())
@@ -76,7 +91,12 @@ function deleteDashboard(id, name) {
         });
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// EVENT BINDING — WIRE UP BUTTONS, CARDS, DRAG-AND-DROP ON DOM READY
+// ══════════════════════════════════════════════════════════════════════════════
+
 document.addEventListener('DOMContentLoaded', () => {
+    // BIND UPLOAD MODAL OPEN/CLOSE BUTTONS
     document.querySelectorAll('.js-open-upload-modal').forEach((btn) => {
         btn.addEventListener('click', openUploadModal);
     });
@@ -84,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeBtn = document.querySelector('.js-close-upload-modal');
     if (closeBtn) closeBtn.addEventListener('click', closeUploadModal);
 
+    // BIND DASHBOARD CARD CLICK-TO-OPEN AND DELETE BUTTONS
     document.querySelectorAll('.js-open-dashboard').forEach((card) => {
         card.addEventListener('click', () => {
             const href = card.dataset.href;
@@ -98,12 +119,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // BIND DATASET DELETE BUTTONS
     document.querySelectorAll('.js-delete-dataset').forEach((btn) => {
         btn.addEventListener('click', () => {
             deleteDataset(btn.dataset.datasetId, btn.dataset.datasetName || '');
         });
     });
 
+    // SET UP DRAG-AND-DROP AND FILE INPUT HANDLERS ON THE UPLOAD ZONE
     if (uploadZone && fileInput) {
         ['dragenter', 'dragover'].forEach((e) => {
             uploadZone.addEventListener(e, (ev) => {

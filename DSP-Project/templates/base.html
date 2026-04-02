@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- META AND EXTERNAL RESOURCES -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Data Assistant{% endblock %}</title>
@@ -11,6 +12,7 @@
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 </head>
 <body>
+    <!-- NAVBAR — SHOWN ONLY WHEN USER IS LOGGED IN -->
     {% if session.get('user_id') %}
     <nav class="navbar">
         <a href="/dashboard" class="navbar-brand">
@@ -36,6 +38,7 @@
     </nav>
     {% endif %}
 
+    <!-- FLASH MESSAGES — SERVER-SIDE TOAST NOTIFICATIONS -->
     <div class="flash-container" id="flashContainer">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
@@ -44,8 +47,10 @@
         {% endwith %}
     </div>
 
+    <!-- PAGE CONTENT — INJECTED BY CHILD TEMPLATES -->
     {% block content %}{% endblock %}
 
+    <!-- SCRIPTS — BASE JS AND OPTIONAL PAGE-SPECIFIC JS -->
     <script src="{{ url_for('static', filename='js/base.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
