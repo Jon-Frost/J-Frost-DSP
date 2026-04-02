@@ -18,6 +18,7 @@ import io
 import base64
 import numpy as np
 from dotenv import load_dotenv
+from xml.sax.saxutils import escape
 
 # APP CONFIGURATION — FLASK INSTANCE, PATHS, UPLOAD LIMITS, AND ENV VARS
 
@@ -1003,6 +1004,7 @@ def delete_dataset(dataset_id):
 @app.route('/api/dashboard/<int:dashboard_id>/export')
 @login_required
 def export_dashboard(dashboard_id):
+    # BUILD A DOWNLOADABLE PDF VERSION OF THE SAVED DASHBOARD
     db = get_db()
     d = db.execute(
         'SELECT * FROM dashboards WHERE id = ? AND user_id = ?',
@@ -1027,11 +1029,15 @@ def export_dashboard(dashboard_id):
             except:
                 pass
 
-    html = render_template('export.html', dashboard_name=d['name'], charts_json=json.dumps(charts_json))
-    buf = io.BytesIO(html.encode('utf-8'))
+    pdf_bytes = generate_dashboard_pdf_bytes(d['name'], charts_json, config.get('charts', []))
+    buf = io.BytesIO(pdf_bytes)
     buf.seek(0)
-    return send_file(buf, mimetype='text/html', as_attachment=True,
-                     download_name=f"{d['name'].replace(' ', '_')}_dashboard.html")
+    return send_file(
+        buf,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f"{d['name'].replace(' ', '_')}_dashboard.pdf"
+    )
 
 # Routes: Chart JSON Helper — Generate Plotly Data+Layout for Export / Reuse
 
@@ -1085,6 +1091,140 @@ def generate_chart_json(df, cfg):
     apply_axis_style_defaults(layout)
 
     return {'data': traces, 'layout': layout}
+
+
+# PDF EXPORT HELPERS — BUILD A DASHBOARD PDF USING CHART IMAGES OR A TEXT FALLBACK
+
+def _escape_pdf_text(value):
+    
+    return str(value).replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
+
+
+def build_simple_pdf_bytes(title, lines):
+   
+    all_lines = [title, f'Generated: {datetime.now().strftime("%Y-%m-%d %H:%M")}', ''] + list(lines)
+    lines_per_page = 40
+    pages = [all_lines[i:i + lines_per_page] for i in range(0, len(all_lines), lines_per_page)] or [[title]]
+
+    objects = []
+
+    def add_object(content):
+        objects.append(content)
+        return len(objects)
+
+    font_obj = add_object('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')
+    page_obj_ids = []
+
+    for page_lines in pages:
+        text_commands = ['BT', '/F1 14 Tf', '50 790 Td']
+        first_line = True
+        for line in page_lines:
+            safe_line = _escape_pdf_text(line)
+            if first_line:
+                text_commands.append(f'({safe_line}) Tj')
+                first_line = False
+            else:
+                text_commands.append('0 -18 Td')
+                text_commands.append(f'({safe_line}) Tj')
+        text_commands.append('ET')
+        stream = '\n'.join(text_commands)
+        content_obj = add_object(f'<< /Length {len(stream.encode("utf-8"))} >>\nstream\n{stream}\nendstream')
+        page_obj_ids.append((content_obj, None))
+
+    pages_kids = []
+    pages_placeholder_index = add_object('')
+
+    for idx, (content_obj, _) in enumerate(page_obj_ids):
+        page_obj_id = add_object(
+            f'<< /Type /Page /Parent {pages_placeholder_index} 0 R /MediaBox [0 0 612 842] '
+            f'/Resources << /Font << /F1 {font_obj} 0 R >> >> /Contents {content_obj} 0 R >>'
+        )
+        page_obj_ids[idx] = (content_obj, page_obj_id)
+        pages_kids.append(f'{page_obj_id} 0 R')
+
+    objects[pages_placeholder_index - 1] = (
+        f'<< /Type /Pages /Kids [{" ".join(pages_kids)}] /Count {len(pages_kids)} >>'
+    )
+    catalog_obj = add_object(f'<< /Type /Catalog /Pages {pages_placeholder_index} 0 R >>')
+
+    pdf = io.BytesIO()
+    pdf.write(b'%PDF-1.4\n')
+    offsets = [0]
+    for index, obj in enumerate(objects, start=1):
+        offsets.append(pdf.tell())
+        pdf.write(f'{index} 0 obj\n'.encode('utf-8'))
+        pdf.write(obj.encode('utf-8'))
+        pdf.write(b'\nendobj\n')
+
+    xref_offset = pdf.tell()
+    pdf.write(f'xref\n0 {len(objects) + 1}\n'.encode('utf-8'))
+    pdf.write(b'0000000000 65535 f \n')
+    for offset in offsets[1:]:
+        pdf.write(f'{offset:010d} 00000 n \n'.encode('utf-8'))
+
+    trailer = (
+        f'trailer\n<< /Size {len(objects) + 1} /Root {catalog_obj} 0 R >>\n'
+        f'startxref\n{xref_offset}\n%%EOF'
+    )
+    pdf.write(trailer.encode('utf-8'))
+    return pdf.getvalue()
+
+
+def generate_dashboard_pdf_bytes(dashboard_name, charts_json, chart_configs):
+    
+    fallback_lines = []
+    for index, chart_cfg in enumerate(chart_configs, start=1):
+        chart_title = chart_cfg.get('title') or f"{chart_cfg.get('chart_type', 'chart').title()} Chart"
+        fallback_lines.append(f'{index}. {chart_title}')
+
+    if not charts_json:
+        fallback_lines.append('No charts were available to export for this dashboard.')
+
+    try:
+        import plotly.graph_objects as go
+        from reportlab.lib.pagesizes import landscape, A4
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.units import inch
+        from reportlab.platypus import Image, PageBreak, Paragraph, SimpleDocTemplate, Spacer
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=landscape(A4),
+            leftMargin=36,
+            rightMargin=36,
+            topMargin=36,
+            bottomMargin=36,
+        )
+        styles = getSampleStyleSheet()
+        story = [
+            Paragraph(escape(dashboard_name), styles['Title']),
+            Spacer(1, 0.2 * inch),
+            Paragraph(f'Generated on {escape(datetime.now().strftime("%Y-%m-%d %H:%M"))}', styles['Normal']),
+            Spacer(1, 0.3 * inch),
+        ]
+
+        if not charts_json:
+            story.append(Paragraph('No charts were available to export.', styles['Normal']))
+
+        for index, chart_json in enumerate(charts_json, start=1):
+            chart_cfg = chart_configs[index - 1] if index - 1 < len(chart_configs) else {}
+            chart_title = chart_cfg.get('title') or f"{chart_cfg.get('chart_type', 'chart').title()} Chart"
+            story.append(Paragraph(f'{index}. {escape(chart_title)}', styles['Heading2']))
+            story.append(Spacer(1, 0.15 * inch))
+
+            fig = go.Figure(data=chart_json.get('data', []), layout=chart_json.get('layout', {}))
+            fig.update_layout(width=1200, height=700)
+            image_bytes = fig.to_image(format='png', width=1200, height=700, scale=2)
+
+            story.append(Image(io.BytesIO(image_bytes), width=10.5 * inch, height=6.1 * inch))
+            if index < len(charts_json):
+                story.append(PageBreak())
+
+        doc.build(story)
+        return buffer.getvalue()
+    except Exception:
+        return build_simple_pdf_bytes(dashboard_name, fallback_lines)
 
 # Routes: Gemini AI Chat — AI-Powered Data Analysis and Chart Suggestions
 

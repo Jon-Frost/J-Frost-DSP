@@ -304,7 +304,8 @@ class DataForgeAppTests(unittest.TestCase):
 
         export_res = self.client.get(f"/api/dashboard/{dashboard_id}/export")
         self.assertEqual(export_res.status_code, 200)
-        self.assertIn("text/html", export_res.content_type)
+        self.assertIn("application/pdf", export_res.content_type)
+        self.assertTrue(export_res.data.startswith(b"%PDF"))
 
         del_res = self.client.post(f"/api/dashboard/{dashboard_id}/delete")
         self.assertEqual(del_res.status_code, 200)
